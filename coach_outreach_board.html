@@ -549,19 +549,57 @@ function evidenceText(m){
 function outreachLines(m){
   const fn=fname(m.n);
   const isNew=m.days<90, isVet=m.days>730;
+  const {c2,c3}=consecDrops(m);
+  const sig=wowSig(m);
+  const tenureYrs=parseFloat((m.days/365).toFixed(1));
   const lines=[];
-  lines.push('<strong>Evidence:</strong> '+evidenceText(m));
+
   if(m.q===3){
-    if(isNew) lines.push(`<strong>New member</strong> (${m.days} days) — low early attendance is the #1 churn predictor.`);
-    lines.push(isNew
-      ? `Floor: &ldquo;Hey ${fn}, how's everything going? ${m.v7} visit${m.v7!==1?'s':''} last week — we want to make sure you're getting the most out of it.&rdquo;`
-      : `Floor: warm greeting by name &mdash; acknowledge they were in ${m.v7} time${m.v7!==1?'s':''} last week.`);
-    lines.push('If under 3/wk for 2+ consecutive weeks: escalate to a scheduled check-in.');
+    // Evidence first
+    lines.push('<strong>Evidence:</strong> '+evidenceText(m));
+    if(isNew) lines.push(`<strong>New member</strong> (${m.days} days) &mdash; low early attendance is the #1 churn predictor.`);
+    // What to notice on the floor
+    if(sig==='rise'||m.v7>m.v714){
+      lines.push('What to notice: energy, confidence, positive body language &mdash; they&rsquo;re trending up.');
+      lines.push('Goal: reinforce what&rsquo;s working. Help them name it so they can protect it.');
+    } else {
+      lines.push('What to notice: any mention of time, energy, or life stuff getting in the way.');
+      lines.push('Goal: find the friction. One honest conversation can change the trajectory.');
+    }
+    // Conversation starter based on pattern
+    if(c3)
+      lines.push(`Opening: &ldquo;Hey ${fn}, you&rsquo;ve gone from ${m.v2128} sessions a few weeks ago down to ${m.v7} last week &mdash; how&rsquo;s everything going?&rdquo;`);
+    else if(c2)
+      lines.push(`Opening: &ldquo;Hey ${fn}, you were in ${m.v714} the week before last, then ${m.v7} last week &mdash; what would help you find a solid routine?&rdquo;`);
+    else if(sig==='rise'||m.v7>m.v714)
+      lines.push(`Opening: &ldquo;Hey ${fn}, noticed your attendance picked back up &mdash; what&rsquo;s been helping?&rdquo;`);
+    else
+      lines.push(`Opening: &ldquo;Hey ${fn}, how&rsquo;s everything going? We want to make sure training is working for you.&rdquo;`);
+    // Next step
+    if(c2||c3)
+      lines.push('Next step: if drop continues next week, escalate to a scheduled 1:1 check-in.');
+    else if(sig==='rise'||m.v7>m.v714)
+      lines.push('Next step: if improvement holds, acknowledge publicly and consider a referral ask.');
+    else
+      lines.push('Next step: monitor for 1 more week. If no improvement, move to a scheduled check-in.');
+
   } else {
-    if(m.v7>=3) lines.push(`At or above the 3/wk retention threshold this week (${m.v7} visits).`);
-    if(m.str>=10) lines.push(`${m.str}-week streak — celebrate publicly in class!`);
-    lines.push('Floor: high-energy acknowledgement by name.');
-    if(isVet) lines.push(`Veteran member (${(m.days/365).toFixed(1)} yrs) — an anniversary shout-out lands well.`);
+    // Q4 Maintain
+    const milestone=isMilestone(m);
+    if(milestone){
+      lines.push(`<strong>Milestone: ${m.str}-week streak</strong> &mdash; say it out loud in class today.`);
+      lines.push(`Celebration: &ldquo;Big shout out to ${fn} &mdash; ${m.str} weeks straight. That&rsquo;s what consistency looks like.&rdquo;`);
+      lines.push('Ask: &ldquo;What&rsquo;s been the biggest thing keeping you consistent?&rdquo;');
+      lines.push('Consider inviting them to a Success Session to channel the momentum into a new goal.');
+    } else {
+      if(m.v7>=3) lines.push(`At or above the 3/wk retention threshold last week (${m.v7} visits).`);
+      if(m.str>=4) lines.push(`${m.str}-week streak &mdash; ${m.str>=8?'celebrate publicly':'acknowledge the consistency'}.`);
+    }
+    lines.push('Training interest check-in: &ldquo;Have you been enjoying what we&rsquo;ve been doing lately? Anything you want more of &mdash; strength, conditioning, technique?&rdquo;');
+    lines.push('Goals check-in: &ldquo;You&rsquo;ve been so consistent &mdash; any goals you want to work toward over the next few months?&rdquo;');
+    lines.push('Community ask: &ldquo;You&rsquo;re one of our best &mdash; do you know anyone who&rsquo;d love this? We&rsquo;d love more people like you.&rdquo;');
+    if(isVet) lines.push(`Veteran member (${tenureYrs} yrs) &mdash; a personal anniversary note or shout-out goes a long way.`);
+    if(sig==='drop') lines.push(`Signal: slight dip last week (${m.v714}&rarr;${m.v7}) &mdash; mention it warmly, not as a concern.`);
   }
   return lines;
 }
@@ -635,7 +673,19 @@ function methodLabel(v){ const o=METHOD_OPTIONS.find(x=>x.value===v); return o?o
 function outcomeLabel(q,v){ const o=(OUTCOME_OPTIONS[q]||[]).find(x=>x.value===v); return o?o.label:(v||'—'); }
 
 /* ================= State ================= */
-let coaches = {};          // id -> {id,name,active}
+// Hardcoded coaches — update this list if the coaching team changes
+const COACH_LIST = [
+  'Ata Ceviker',
+  'Azelle Breytenbach',
+  'Everson Boian',
+  'Fraser Harrison',
+];
+let coaches = {};  // id -> {id,name,active}
+// Populate from hardcoded list
+COACH_LIST.forEach(name => {
+  const id = name.toLowerCase().replace(/[^a-z]/g,'_');
+  coaches[id] = {id, name, active: true};
+});
 let assignments = {};      // memberId(string) -> {primary,secondary,notes,weeks,updatedBy,updatedAt}
 let db = null;
 let currentCoachId = null;
@@ -692,25 +742,12 @@ function relTime(iso){
 
 /* ================= DB bootstrap ================= */
 async function initDb(){
-  if(typeof window.claude==='undefined' || typeof window.claude.use!=='function'){
-    renderIdentity(); renderWorkload(); renderAll();
-    return;
-  }
+  // Coaches are hardcoded — render immediately regardless of db status
+  renderIdentity(); renderWorkload(); renderAll();
+
+  if(typeof window.claude==='undefined' || typeof window.claude.use!=='function') return;
   db = await window.claude.use('db');
-  if(!db){
-    renderIdentity();
-    renderWorkload();
-    renderAll();
-    return;
-  }
-  db.collection('coaches').limit(200).onSnapshot(snap=>{
-    const next={};
-    snap.docs.forEach(d=>{ next[d.id]=Object.assign({id:d.id},d.data()); });
-    coaches=next;
-    renderIdentity();
-    renderWorkload();
-    renderAll();
-  }, err=>{ console.error('coaches snapshot',err); });
+  if(!db) return;
 
   db.collection('assignments').limit(1000).onSnapshot(snap=>{
     const next={};
@@ -829,28 +866,37 @@ function scriptMessage(m){
   const {c2,c3}=consecDrops(m);
   const sig=wowSig(m);
   if(m.q===3){
-    // Monitor is now entirely pattern-driven (two straight weekly drops, or
-    // stuck at ≤2/wk for two weeks) — so the script should name the pattern
-    // itself, and recognise it just as readily when it's turning back up as
-    // when it's still sliding down.
-    if(m.days<90) return `Hey ${fn}! How's everything going? Want to make sure you're getting the most out of your membership — let me know if there's anything I can help with!`;
-    if(c3) return `Hey ${fn}, noticed your attendance has been dropping for a few weeks now. Everything ok? Keen to help you get back on track.`;
-    if(c2) return `Hey ${fn}, noticed your attendance had dipped for two weeks running. Everything ok — how can I help you get back to it?`;
-    if(m.v7>m.v714) return `Hey ${fn}, noticed your attendance picked back up last week — good to see! Anything I can do to help you keep building on it?`;
-    if(m.v7<m.v714) return `Hey ${fn}, noticed a bit of a dip in your attendance this week. Everything ok?`;
-    return `Hey ${fn}, noticed your attendance has been sitting a bit low the last couple of weeks. Everything ok? Keen to help you find a rhythm that works.`;
+    const isNew=m.days<90;
+    if(isNew)
+      return `Hey ${fn}! How's everything going? ${m.v7} visit${m.v7!==1?'s':''} last week — we want to make sure you're settling in well. Anything I can help with?`;
+    if(c3)
+      return `Hey ${fn}, you've gone from ${m.v2128} sessions a few weeks ago down to ${m.v7} last week — how's everything going outside the gym?`;
+    if(c2)
+      return `Hey ${fn}, noticed you were in ${m.v714} the week before last, then ${m.v7} last week — all good? What would help you find a consistent routine?`;
+    if(sig==='rise'||m.v7>m.v714)
+      return `Hey ${fn}, noticed your attendance picked back up last week — good to see! What's been helping you get in more consistently?`;
+    if(m.v7<=2&&m.v714<=2)
+      return `Hey ${fn}, noticed it's been a quieter couple of weeks. Everything ok? Keen to help you get back to a rhythm that works.`;
+    return `Hey ${fn}, noticed things have been a bit quieter lately. Everything ok? Happy to help if there's anything getting in the way.`;
   }
-  // Maintain: save the streak celebration for real milestones (isMilestone —
-  // 4-8-12-16-20 then every 25 from 50 on). Everything else rotates between
-  // appreciation and a genuine question, so coaches learn what's landing
-  // and what members want more of, not just "great job, keep it up".
-  if(isMilestone(m)) return `Hey ${fn}! ${m.str} weeks straight — that's a huge milestone. Seriously impressive, keep it up! What's been the biggest thing helping you stay consistent?`;
-  if(sig==='drop') return `Hey ${fn}, noticed you've dropped off slightly this week — all good? Keen to see you back at your usual pace.`;
+  if(isMilestone(m)){
+    const phrases=[
+      `Hey ${fn}! ${m.str} weeks straight — that's not a streak, that's a lifestyle. What's been the biggest thing keeping you consistent?`,
+      `Hey ${fn}, ${m.str} consecutive weeks — that's the standard. Seriously impressive. What's been your highlight lately?`,
+      `Hey ${fn}, ${m.str} weeks without missing — if that doesn't inspire someone in this room, nothing will. How are you feeling?`,
+      `Hey ${fn}, ${m.str} weeks straight. No excuses, no gaps — just showing up. What goals are you working toward right now?`,
+      `Hey ${fn}, ${m.str} weeks in a row. Most people talk about being consistent — you just are. What do you want to work on next?`,
+    ];
+    return phrases[Math.floor(m.str/4) % phrases.length];
+  }
+  if(sig==='drop')
+    return `Hey ${fn}, noticed a slight dip last week — all good? Keen to see you back at your usual pace.`;
   const maintainVariants=[
-    `Hey ${fn}, love seeing you in so consistently — what's been your favourite part of training lately?`,
-    `Hey ${fn}, you've been on it lately! Anything you'd like to see more of in the programming?`,
-    `Hey ${fn}, really enjoy having you in — what's been clicking for you, and is there anything we could do more of?`,
-    `Hey ${fn}, great to have you around so often — what have you been enjoying most lately?`
+    `Hey ${fn}, love seeing you in so consistently! Have you been enjoying the programming lately — anything you'd like more of?`,
+    `Hey ${fn}, you've been so consistent — have you thought about what you want to get out of the next few months? Any goals I can help you work toward?`,
+    `Hey ${fn}, great having you around so often. You're one of the people who really gets what we're about — do you know anyone who'd love this?`,
+    `Hey ${fn}, really enjoy having you in — what's been clicking for you lately, and is there anything we could do more of?`,
+    `Hey ${fn}, you've built something solid here. What aspect of your training are you most focused on right now?`,
   ];
   return maintainVariants[m.id % maintainVariants.length];
 }
@@ -878,17 +924,18 @@ function copyScript(id){
 
 /* ================= Coach roster ================= */
 function addCoach(){
-  const input=document.getElementById('newCoachName');
-  const name=(input.value||'').trim();
+  const name = (document.getElementById('newCoachName').value||'').trim();
   if(!name) return;
-  if(!db){ showToast('Preview mode — open the published board to add coaches'); return; }
-  db.collection('coaches').add({name, active:true, createdAt:new Date().toISOString()})
-    .then(()=>{ input.value=''; showToast('Added '+name); })
-    .catch(()=>showToast('Could not add coach'));
+  const id = name.toLowerCase().replace(/[^a-z]/g,'_');
+  coaches[id] = {id, name, active: true};
+  document.getElementById('newCoachName').value='';
+  renderCoachModal();
+  renderAll();
+  showToast('Coach added');
 }
 function toggleCoachActive(id, current){
   if(!db) return;
-  db.doc('coaches/'+id).update({active: !current}).catch(()=>showToast('Could not update coach'));
+  coaches[id].active = !current; renderCoachModal(); renderAll();
 }
 function openCoachModal(){ renderCoachModal(); document.getElementById('coachModal').classList.add('open'); }
 function closeCoachModal(){ document.getElementById('coachModal').classList.remove('open'); }
