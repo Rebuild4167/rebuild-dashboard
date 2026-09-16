@@ -686,7 +686,52 @@ COACH_LIST.forEach(name => {
   const id = name.toLowerCase().replace(/[^a-z]/g,'_');
   coaches[id] = {id, name, active: true};
 });
-let assignments = {};      // memberId(string) -> {primary,secondary,notes,weeks,updatedBy,updatedAt}
+
+/* ── Google Sheets backend via Apps Script web app ──────────────────── */
+// SETUP: Paste the Apps Script code into your Google Sheet (Extensions → Apps Script)
+// then deploy it as a web app and paste the URL below.
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlgD5mFuP0xtAFiVrcNQsK872C_kne5nryKRMgiWeMIoF0mQjWFgSAUGOJckgxiCETUQ/exec';
+const SHEET_ID = '1-eYjiY-4nEhw1d-1VFVkEXhk2L_-znKVgbDR9ejfGjU';
+let assignments = {};  // member id -> {coachName: {contacted, notes, ts}}
+
+// Sheets I/O handled via Apps Script web app
+
+async function loadAllAssignments(){
+  if(!APPS_SCRIPT_URL){ renderWorkload(); renderAll(); return; }
+  const data = await callScript('load', {});
+  if(!data) { renderWorkload(); renderAll(); return; }
+  assignments = data.assignments || {};
+  renderWorkload(); renderAll();
+  if(openPanelId!=null) refreshPanel();
+}
+
+async function writeContactToSheet(memberId, memberName, coachName, contacted, notes){
+  // Update local state immediately so UI feels instant
+  assignments[memberId] = assignments[memberId]||{};
+  assignments[memberId][coachName] = {
+    contacted, notes:notes||'',
+    ts:new Date().toISOString(), coachId:coachName
+  };
+  renderWorkload(); renderAll();
+  if(openPanelId===memberId) refreshPanel();
+  // Sync to sheet in background
+  await callScript('write', {memberId, memberName, coachName, contacted, notes:notes||''});
+}
+
+/* ── Google OAuth sign-in ────────────────────────────────────────────── */
+async function callScript(action, payload){
+  if(!APPS_SCRIPT_URL) return null;
+  try {
+    const r = await fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action, ...payload}),
+      mode:'cors',
+    });
+    return r.ok ? await r.json() : null;
+  } catch(e){ console.warn('Sheets sync error:', e); return null; }
+}
+// assignments declared above in Sheets backend section
 let db = null;
 let currentCoachId = null;
 let activeLoc = '';
@@ -696,15 +741,32 @@ let sortMode = 'priority';
 
 try { currentCoachId = localStorage.getItem('rebuild_coach_id') || null; } catch(e){}
 
-function getAssignment(id){ return assignments[String(id)] || null; }
+function getAssignment(id){
+  // Returns a merged view: contacted = true if ANY coach has contacted them this week
+  const perCoach = assignments[String(id)];
+  if(!perCoach) return null;
+  // Flatten: contacted if any coach ticked it
+  const anyContacted = Object.values(perCoach).some(c=>c.contacted);
+  const contactedBy = Object.entries(perCoach).filter(([,c])=>c.contacted).map(([name])=>name);
+  return {contacted:anyContacted, contactedBy, perCoach};
+}
+function getMyAssignment(id){
+  // Returns just the current coach's entry
+  if(!currentCoachId) return null;
+  const coachName = coaches[currentCoachId]?.name;
+  return (assignments[String(id)]||{})[coachName] || null;
+}
 function weekKeyNow(){
   const d=new Date();
   const day=d.getDay()||7;
   const mon=new Date(d); mon.setDate(d.getDate()-day+1);
   return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
 }
-function isContactedThisWeek(m){ const a=getAssignment(m.id); return !!(a&&a.weeks&&a.weeks[weekKeyNow()]); }
-function thisWeekLog(m){ const a=getAssignment(m.id); return (a&&a.weeks&&a.weeks[weekKeyNow()])||null; }
+function isContactedThisWeek(m){
+  const a=getAssignment(m.id);
+  return !!(a&&a.contacted);
+}
+function thisWeekLog(m){ return getMyAssignment(m.id); }
 function milestoneComplete(m){ const log=thisWeekLog(m); return !!(log&&log.milestone&&log.inviteSent===true); }
 function coachName(id){ return (id && coaches[id]) ? coaches[id].name : (id?'Former coach':'—'); }
 function activeCoachList(){ return Object.values(coaches).sort((a,b)=>cn(a.name).localeCompare(cn(b.name))); }
@@ -742,34 +804,31 @@ function relTime(iso){
 
 /* ================= DB bootstrap ================= */
 async function initDb(){
-  // Coaches are hardcoded — render immediately regardless of db status
+  // Coaches are hardcoded — render immediately
   renderIdentity(); renderWorkload(); renderAll();
-
-  if(typeof window.claude==='undefined' || typeof window.claude.use!=='function') return;
-  db = await window.claude.use('db');
-  if(!db) return;
-
-  db.collection('assignments').limit(1000).onSnapshot(snap=>{
-    const next={};
-    snap.docs.forEach(d=>{ next[d.id]=d.data(); });
-    assignments=next;
-    renderWorkload();
-    renderAll();
-    if(openPanelId!=null) refreshPanel();
-  }, err=>{ console.error('assignments snapshot',err); });
+  // Load contacted state from Google Sheet
+  await loadAllAssignments();
 }
 
 function writeAssignment(id, doc){
   doc.updatedAt = new Date().toISOString();
   doc.updatedBy = currentCoachId || null;
-  assignments[String(id)] = doc;
+  assignments[String(id)] = assignments[String(id)] || {};
+  // Merge into per-coach structure
+  if(currentCoachId){
+    assignments[String(id)][currentCoachId] = assignments[String(id)][currentCoachId] || {};
+    Object.assign(assignments[String(id)][currentCoachId], doc);
+  }
   renderWorkload();
   renderAll();
   if(openPanelId===id) refreshPanel();
-  if(db){
-    db.collection('assignments').doc(String(id)).set(doc).catch(e=>{ showToast('Could not save — try again'); });
-  } else {
-    showToast('Preview mode — changes are not saved');
+  // Sync contacted status to the coach's sheet tab
+  if(doc.contacted !== undefined && currentCoachId && APPS_SCRIPT_URL){
+    const m = MEMBERS.find(x=>x.id===id);
+    const coachName = coaches[currentCoachId]?.name || currentCoachId;
+    writeContactToSheet(id, m ? cn(m.n) : String(id), coachName, !!doc.contacted, doc.notes||'');
+  } else if(!APPS_SCRIPT_URL){
+    showToast('Preview mode — set up Apps Script to save across devices');
   }
 }
 // Shallow-copy the existing doc (if any) without inventing defaults for
