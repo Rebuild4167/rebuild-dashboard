@@ -769,10 +769,16 @@ function weekKeyNow(){
   return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
 }
 function isContactedThisWeek(m){
-  const a=getAssignment(m.id);
-  return !!(a&&a.contacted);
+  // Check Sheets state (cross-device) OR local week log
+  const a = getAssignment(m.id);
+  const doc = getLocalDoc(m.id);
+  const hasWeekLog = !!(doc && doc.weeks && doc.weeks[weekKeyNow()]);
+  return !!(a && a.contacted) || hasWeekLog;
 }
-function thisWeekLog(m){ return getMyAssignment(m.id); }
+function thisWeekLog(m){
+  const doc = getLocalDoc(m.id);
+  return (doc && doc.weeks && doc.weeks[weekKeyNow()]) || null;
+}
 function milestoneComplete(m){ const log=thisWeekLog(m); return !!(log&&log.milestone&&log.inviteSent===true); }
 function coachName(id){ return (id && coaches[id]) ? coaches[id].name : (id?'Former coach':'—'); }
 function activeCoachList(){ return Object.values(coaches).sort((a,b)=>cn(a.name).localeCompare(cn(b.name))); }
@@ -789,16 +795,24 @@ function autoCoachId(m){
 }
 // The primary coach a member should show: an explicit override if one was ever
 // saved (even an explicit "no primary"), otherwise their Wodify main coach.
+
+// localDocs stores coach assignments, notes, weeks — separate from Sheets contact state
+let localDocs = {};
+try { localDocs = JSON.parse(localStorage.getItem('rebuild_coach_docs')||'{}'); } catch(e){}
+function saveLocalDocs(){ try{ localStorage.setItem('rebuild_coach_docs', JSON.stringify(localDocs)); }catch(e){} }
+function getLocalDoc(id){ return localDocs[String(id)] || null; }
+function setLocalDoc(id, doc){ localDocs[String(id)] = doc; saveLocalDocs(); }
+
 function effectivePrimaryId(m){
-  const a=getAssignment(m.id);
+  const a = getLocalDoc(m.id);
   if(a && Object.prototype.hasOwnProperty.call(a,'primary')) return a.primary;
   return autoCoachId(m);
 }
 function hasExplicitPrimary(m){
-  const a=getAssignment(m.id);
+  const a = getLocalDoc(m.id);
   return !!(a && Object.prototype.hasOwnProperty.call(a,'primary'));
 }
-function hasAnyCoach(m){ const a=getAssignment(m.id); return !!(effectivePrimaryId(m) || (a&&a.secondary)); }
+function hasAnyCoach(m){ return !!(effectivePrimaryId(m) || (getLocalDoc(m.id)||{}).secondary); }
 function relTime(iso){
   if(!iso) return '';
   const then=new Date(iso), now=new Date();
@@ -819,15 +833,12 @@ async function initDb(){
 function writeAssignment(id, doc){
   doc.updatedAt = new Date().toISOString();
   doc.updatedBy = currentCoachId || null;
-  assignments[String(id)] = assignments[String(id)] || {};
-  if(currentCoachId){
-    assignments[String(id)][currentCoachId] = assignments[String(id)][currentCoachId] || {};
-    Object.assign(assignments[String(id)][currentCoachId], doc);
-  }
+  // Store doc fields (primary, secondary, notes, weeks) in localDocs
+  setLocalDoc(id, doc);
   renderWorkload();
   renderAll();
   if(openPanelId===id) refreshPanel();
-  // Only sync contacted status when there's an actual week log — not on coach assignment changes
+  // Only sync contacted status when there's an actual week log
   if(APPS_SCRIPT_URL && currentCoachId){
     const weekLog = doc.weeks && doc.weeks[weekKeyNow()];
     if(weekLog !== undefined){
@@ -841,11 +852,8 @@ function writeAssignment(id, doc){
     }
   }
 }
-// Shallow-copy the existing doc (if any) without inventing defaults for
-// fields the coach hasn't touched — that's what lets "primary" stay absent
-// (and therefore fall back to the Wodify auto-match) until someone
-// deliberately overrides it.
-function existingDoc(id){ return Object.assign({}, getAssignment(id)); }
+// Shallow-copy the existing local doc
+function existingDoc(id){ return Object.assign({}, getLocalDoc(id)); }
 function setAssignment(id, field, value){
   const doc=existingDoc(id);
   doc[field]=value||null;
@@ -933,7 +941,6 @@ function removeWeekLog(id, wk){
   const doc=existingDoc(id);
   doc.weeks=Object.assign({}, doc.weeks);
   delete doc.weeks[wk];
-  // If no weeks left, clear the assignments contacted state too
   if(!Object.keys(doc.weeks).length){
     if(assignments[String(id)]){
       Object.keys(assignments[String(id)]).forEach(name=>{
@@ -948,19 +955,20 @@ function removeWeekLog(id, wk){
 
 function resetMemberLog(id){
   if(!verifyPin()) return;
+  // Clear local doc weeks
   const doc=existingDoc(id);
   doc.weeks={};
   doc.contacted=false;
-  // Clear assignments state for all coaches so tile updates immediately
+  setLocalDoc(id, doc);
+  // Clear Sheets contact state
   assignments[String(id)] = {};
-  writeAssignment(id, doc);
-  // Clear from sheet
+  renderWorkload(); renderAll();
+  // Sync cleared state to sheet
   const m = MEMBERS.find(x=>x.id===id);
   const coachName = coaches[currentCoachId]?.name || currentCoachId;
   if(APPS_SCRIPT_URL && m){
     writeContactToSheet(id, cn(m.n), coachName, false, '');
   }
-  renderWorkload(); renderAll();
   showToast('Contact log reset ✓');
   if(openPanelId===id) refreshPanel();
 }
@@ -1093,7 +1101,7 @@ function passesFilters(m){
   if(activeLoc && m.loc!==activeLoc) return false;
   if(searchTerm && !cn(m.n).toLowerCase().includes(searchTerm)) return false;
   const eff=effectivePrimaryId(m);
-  const a=getAssignment(m.id);
+  const a=getLocalDoc(m.id)||{};
   if(assignFilter==='unassigned' && eff) return false;
   if(assignFilter==='mine' && !(currentCoachId && (eff===currentCoachId || (a&&a.secondary===currentCoachId)))) return false;
   if(assignFilter==='needs-contact' && !(eff && !isContactedThisWeek(m))) return false;
@@ -1141,7 +1149,7 @@ function coachOptions(selectedId){
 
 /* ================= Rendering: member tiles ================= */
 function tileHTML(m){
-  const a=getAssignment(m.id)||{};
+  const a=getLocalDoc(m.id)||{};
   const autoId=autoCoachId(m);
   const explicit=hasExplicitPrimary(m);
   const effPrimary=explicit?a.primary:autoId;
@@ -1235,7 +1243,7 @@ function renderHeaderStats(){
   const monitor=base.filter(m=>inSection(m,3)).length;
   const maintain=base.filter(m=>inSection(m,4)).length;
   const unassigned=base.filter(m=>!effectivePrimaryId(m)).length;
-  const mine=currentCoachId ? base.filter(m=>{const a=getAssignment(m.id);return effectivePrimaryId(m)===currentCoachId||(a&&a.secondary===currentCoachId);}).length : 0;
+  const mine=currentCoachId ? base.filter(m=>{const a=getLocalDoc(m.id)||{};return effectivePrimaryId(m)===currentCoachId||(a&&a.secondary===currentCoachId);}).length : 0;
   document.getElementById('statMonitor').textContent=monitor;
   document.getElementById('statMaintain').textContent=maintain;
   document.getElementById('statUnassigned').textContent=unassigned;
@@ -1254,7 +1262,7 @@ function renderWorkload(){
     const p=effectivePrimaryId(m);
     const contacted=isContactedThisWeek(m);
     if(p && totals[p]){ totals[p].primary++; totals[p].total++; if(contacted) totals[p].contacted++; }
-    const a=getAssignment(m.id);
+    const a=getLocalDoc(m.id)||{};
     if(a&&a.secondary&&totals[a.secondary]){ totals[a.secondary].secondary++; totals[a.secondary].total++; if(contacted) totals[a.secondary].contacted++; }
   });
   const rows=list.filter(c=>c.active!==false || totals[c.id].primary+totals[c.id].secondary>0)
@@ -1292,7 +1300,7 @@ function closePanel(){
   document.getElementById('panel').classList.remove('open');
 }
 function drawPanel(m){
-  const a=getAssignment(m.id)||{};
+  const a=getLocalDoc(m.id)||{};
   const autoId=autoCoachId(m);
   const explicit=hasExplicitPrimary(m);
   const effPrimary=explicit?a.primary:autoId;
