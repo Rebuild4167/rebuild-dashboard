@@ -939,13 +939,21 @@ function resetMemberLog(id){
   if(!verifyPin()) return;
   const doc=existingDoc(id);
   doc.weeks={};
+  doc.contacted=false;
+  // Clear local per-coach state so the green tick disappears immediately
+  if(assignments[String(id)]){
+    Object.keys(assignments[String(id)]).forEach(coachName=>{
+      assignments[String(id)][coachName].contacted = false;
+    });
+  }
   writeAssignment(id, doc);
-  // Also clear from sheet
+  // Clear from sheet
   const m = MEMBERS.find(x=>x.id===id);
   const coachName = coaches[currentCoachId]?.name || currentCoachId;
   if(APPS_SCRIPT_URL && m){
     writeContactToSheet(id, cn(m.n), coachName, false, '');
   }
+  renderWorkload(); renderAll();
   showToast('Contact log reset ✓');
   if(openPanelId===id) refreshPanel();
 }
