@@ -340,7 +340,7 @@ textarea.notes{width:100%;min-height:64px;border:1.5px solid var(--border);borde
 </style>
 
 <div class="wrap">
-  <div class="hdr" style="position:relative">
+  <div class="hdr">
     <div class="hdr-top">
       <div class="hdr-title">
         <h1>Coach Outreach Board</h1>
@@ -354,13 +354,10 @@ textarea.notes{width:100%;min-height:64px;border:1.5px solid var(--border);borde
         <div class="hstat mine"><b id="statMine">0</b><span>My members</span></div>
       </div>
     </div>
-    <button onclick="document.getElementById('guideModal').classList.add('open')"
-      style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:white;border-radius:8px;padding:6px 13px;font-size:0.75rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">
-      Guide ?
-    </button>
   </div>
 
-  <div class="toolbar">
+  <div class="toolbar" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap">
     <div class="loc-tabs" id="locTabs">
       <button class="loc-tab active" data-loc="" onclick="setLoc('')">All</button>
       <button class="loc-tab" data-loc="Wynnum" onclick="setLoc('Wynnum')">Wynnum</button>
@@ -395,6 +392,11 @@ textarea.notes{width:100%;min-height:64px;border:1.5px solid var(--border);borde
       <select id="whoAmI" onchange="onIdentityChange(this.value)"></select>
     </div>
     <button class="btn" onclick="openCoachModal()">&#128101; Manage coaches</button>
+    </div>
+    <button onclick="document.getElementById('guideModal').classList.add('open')"
+      style="background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:5px 13px;font-size:0.75rem;font-weight:600;cursor:pointer;margin-left:auto">
+      Guide ?
+    </button>
   </div>
 
   <div class="workload" id="workloadStrip">
