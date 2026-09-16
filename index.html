@@ -171,6 +171,12 @@ select:focus{border-color:#6366f1}
 .contact-log.show{transform:translateY(0);opacity:1}
 /* Panel contact button */
 .contact-btn{width:100%;padding:10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:0.8rem;font-weight:600;cursor:pointer;color:#475569;transition:all .2s;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+.eng-log-btn{padding:5px 12px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:0.75rem;font-weight:600;cursor:pointer;color:#475569;transition:all .15s}
+.eng-log-btn.selected{background:#6366f1;border-color:#6366f1;color:white}
+.eng-contact-log{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.72rem;color:#15803d}
+.eng-contact-log .ecl-row{display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.eng-contact-log .ecl-badge{background:#dcfce7;border-radius:4px;padding:1px 6px;font-weight:700;font-size:0.68rem}
+.eng-contact-log .ecl-note{color:#334155;font-size:0.71rem;margin-top:4px;font-style:italic}
 .contact-btn:hover{border-color:#22c55e;color:#15803d;background:#f0fdf4}
 .contact-btn.done{background:#f0fdf4;border-color:#86efac;color:#15803d}
 .contact-btn.done:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626}
@@ -387,6 +393,41 @@ select:focus{border-color:#6366f1}
   </div>
   <div id="exp-grid"></div>
 </div><!-- /expiring-section -->
+
+<!-- Engagement Contact Log Modal -->
+<div id="engLogModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center" onclick="if(event.target===this)closeEngLog()">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:92%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:0.95rem;font-weight:700;color:#1e293b" id="engLogTitle">Log contact</div>
+      <button onclick="closeEngLog()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8">✕</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Method</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="engLogMethod">
+        <button class="eng-log-btn" data-val="Floor" onclick="selectEngLog('method',this)">Floor</button>
+        <button class="eng-log-btn" data-val="SMS" onclick="selectEngLog('method',this)">SMS</button>
+        <button class="eng-log-btn" data-val="Call" onclick="selectEngLog('method',this)">Call</button>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Outcome</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="engLogOutcome">
+        <button class="eng-log-btn" data-val="Positive" onclick="selectEngLog('outcome',this)">Positive</button>
+        <button class="eng-log-btn" data-val="Needs follow-up" onclick="selectEngLog('outcome',this)">Needs follow-up</button>
+        <button class="eng-log-btn" data-val="No response" onclick="selectEngLog('outcome',this)">No response</button>
+        <button class="eng-log-btn" data-val="Escalate" onclick="selectEngLog('outcome',this)">Escalate</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Notes</div>
+      <textarea id="engLogNote" placeholder="What was said, next steps…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.78rem;font-family:inherit;resize:vertical;min-height:72px;color:#334155"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeEngLog()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:0.8rem;font-weight:600;cursor:pointer;color:#64748b">Cancel</button>
+      <button onclick="saveEngLog()" style="flex:2;padding:9px;border-radius:8px;border:none;background:#6366f1;color:white;font-size:0.8rem;font-weight:600;cursor:pointer">Save log</button>
+    </div>
+  </div>
+</div>
 
 <div class="panel" id="panel">
   <div class="panel-head"><h2 id="pname">—</h2><div class="sub" id="psub">—</div><button class="close-btn" onclick="closePanel()">&#x2715;</button></div>
@@ -1356,29 +1397,90 @@ function contactKey(m){ return m.n.toLowerCase().trim(); }
 function isContacted(m){ return !!CONTACTED[contactKey(m)]; }
 function contactedNote(m){ return (CONTACTED[contactKey(m)]||{}).notes||''; }
 
+// ── Engagement contact log modal ───────────────────────────────────────
+let engLogMember = null;
+let engLogState  = { method: null, outcome: null };
+
+function openEngLog(m){
+  engLogMember = m;
+  engLogState  = { method: null, outcome: null };
+  const key    = contactKey(m);
+  const entry  = CONTACTED[key] || {};
+  document.getElementById('engLogTitle').textContent = 'Log contact — ' + fname(m.n);
+  document.getElementById('engLogNote').value = entry.notes || '';
+  // Pre-select existing values
+  ['method','outcome'].forEach(type => {
+    document.querySelectorAll(`#engLog${type.charAt(0).toUpperCase()+type.slice(1)} .eng-log-btn`).forEach(btn => {
+      const match = entry[type] && btn.dataset.val === entry[type];
+      btn.classList.toggle('selected', match);
+      if(match) engLogState[type] = entry[type];
+    });
+  });
+  document.getElementById('engLogModal').style.display = 'flex';
+}
+
+function closeEngLog(){
+  document.getElementById('engLogModal').style.display = 'none';
+  engLogMember = null;
+}
+
+function selectEngLog(type, btn){
+  const group = btn.closest('[id^="engLog"]');
+  group.querySelectorAll('.eng-log-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  engLogState[type] = btn.dataset.val;
+}
+
+async function saveEngLog(){
+  if(!engLogMember) return;
+  const m = engLogMember;
+  const key = contactKey(m);
+  const notes = document.getElementById('engLogNote').value.trim();
+  if(!engLogState.method){ showToast('Please select a method'); return; }
+  if(!engLogState.outcome){ showToast('Please select an outcome'); return; }
+
+  CONTACTED[key] = {
+    ts: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    name: cn(m.n), week: currentWeekKey(),
+    method: engLogState.method,
+    outcome: engLogState.outcome,
+    notes,
+  };
+  saveContactedLocal();
+  closeEngLog();
+  updateContactBar();
+  render(); buildNmBox(); buildHoldsBox(); buildExpiringBox();
+  if(document.getElementById('panel').classList.contains('open')){
+    injectContactUI(m);
+  }
+  showToast('Contact logged ✓');
+  await callScript('writeEngagement', {
+    memberKey: key, memberName: cn(m.n), memberId: m.id,
+    contacted: true,
+    notes: [engLogState.method, engLogState.outcome, notes].filter(Boolean).join(' — '),
+    week: currentWeekKey(),
+  });
+}
+
 async function toggleContacted(m, e){
   if(e){ e.stopPropagation(); }
   const key = contactKey(m);
   if(CONTACTED[key]){
+    // Already logged — unmark
     delete CONTACTED[key];
+    saveContactedLocal();
+    updateContactBar();
+    render(); buildNmBox(); buildHoldsBox(); buildExpiringBox();
+    if(document.getElementById('panel').classList.contains('open')) injectContactUI(m);
     showToast('Unmarked: '+cn(m.n));
+    await callScript('writeEngagement', {
+      memberKey: key, memberName: cn(m.n), memberId: m.id,
+      contacted: false, notes: '', week: currentWeekKey(),
+    });
   } else {
-    CONTACTED[key] = { ts: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}), name:cn(m.n), notes:'', week:currentWeekKey() };
-    showToast('Contacted: '+cn(m.n)+' ✓');
+    // Open log modal instead of simple tick
+    openEngLog(m);
   }
-  saveContactedLocal();
-  updateContactBar();
-  render(); buildNmBox(); buildHoldsBox(); buildExpiringBox();
-  if(document.getElementById('panel').classList.contains('open')){
-    refreshPanelContactBtn(m);
-  }
-  // Sync to Sheets in background
-  const entry = CONTACTED[key] || null;
-  await callScript('writeEngagement', {
-    memberKey: key, memberName: cn(m.n), memberId: m.id,
-    contacted: !!entry, notes: entry ? (entry.notes||'') : '',
-    week: currentWeekKey(),
-  });
 }
 
 async function saveNote(m, notes){
@@ -1450,19 +1552,7 @@ function showToast(msg){
 
 // Refresh just the contact button inside an open panel without re-opening it
 function refreshPanelContactBtn(m){
-  const btn = document.getElementById('panel-contact-btn');
-  if(!btn) return;
-  const done = isContacted(m);
-  btn.className = 'contact-btn' + (done ? ' done' : '');
-  btn.innerHTML = done
-    ? '&#10003; Contacted — click to unmark'
-    : '&#9711; Mark as contacted';
-  btn.onclick = (e)=>{ e.stopPropagation(); toggleContacted(m); };
-  // Update notes field if it exists
-  const notesEl = document.getElementById('panel-contact-notes');
-  if(notesEl) notesEl.value = contactedNote(m);
-  const notesWrap = document.getElementById('panel-notes-wrap');
-  if(notesWrap) notesWrap.style.display = done ? 'block' : 'none';
+  injectContactUI(m);
 }
 
 function injectContactUI(m){
@@ -1471,41 +1561,44 @@ function injectContactUI(m){
   const existing = document.getElementById('panel-contact-wrap');
   if(existing) existing.remove();
 
-  const done = isContacted(m);
-  const prev = prevContact(m);
-  const wrap = document.createElement('div');
+  const done  = isContacted(m);
+  const entry = CONTACTED[contactKey(m)] || {};
+  const prev  = prevContact(m);
+  const wrap  = document.createElement('div');
   wrap.id = 'panel-contact-wrap';
   wrap.style.cssText = 'margin-bottom:12px';
 
-  // Previous contact history section
+  // Previous contact history
   let prevHtml = '';
   if(prev && prev.contacted){
-    const prevDate = prev.ts ? new Date(prev.ts).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : 'Last week';
+    const prevDate  = prev.ts ? new Date(prev.ts).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : 'Last week';
     const prevNotes = prev.notes ? `<div style="font-size:0.72rem;color:#334155;margin-top:4px;padding:6px 8px;background:#f8fafc;border-radius:6px;border-left:3px solid #6366f1;white-space:pre-wrap">${prev.notes}</div>` : '';
-    prevHtml = `
-      <div style="margin-bottom:8px;padding:8px 10px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe">
-        <div style="font-size:0.65rem;font-weight:700;color:#4338ca;margin-bottom:2px">&#128338; Previous contact · ${prevDate}</div>
-        ${prevNotes || '<div style="font-size:0.7rem;color:#6366f1;font-style:italic">Contacted — no notes recorded</div>'}
-      </div>`;
+    prevHtml = `<div style="margin-bottom:8px;padding:8px 10px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe">
+      <div style="font-size:0.65rem;font-weight:700;color:#4338ca;margin-bottom:2px">⏱ Previous contact · ${prevDate}</div>
+      ${prevNotes||'<div style="font-size:0.7rem;color:#6366f1;font-style:italic">Contacted — no notes recorded</div>'}
+    </div>`;
+  }
+
+  // Current week log summary
+  let logHtml = '';
+  if(done && (entry.method || entry.outcome)){
+    const badges = [entry.method, entry.outcome].filter(Boolean).map(v =>
+      `<span class="ecl-badge">${v}</span>`).join('');
+    logHtml = `<div class="eng-contact-log">
+      <div class="ecl-row">${badges}<span style="margin-left:auto;font-size:0.65rem;color:#86efac">${entry.ts||''}</span></div>
+      ${entry.notes ? `<div class="ecl-note">"${entry.notes}"</div>` : ''}
+    </div>`;
   }
 
   wrap.innerHTML = `
     ${prevHtml}
+    ${logHtml}
     <button id="panel-contact-btn" class="contact-btn${done?' done':''}" style="width:100%;margin-bottom:6px">
-      ${done ? '&#10003; Contacted — click to unmark' : '&#9711; Mark as contacted'}
+      ${done ? '✓ Logged — click to update' : '＋ Log contact'}
     </button>
-    <div id="panel-notes-wrap" style="display:${done?'block':'none'}">
-      <textarea id="panel-contact-notes"
-        placeholder="Notes — what was said, next steps…"
-        style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.75rem;font-family:inherit;resize:vertical;min-height:64px;color:#334155;background:#f8fafc"
-      >${contactedNote(m)}</textarea>
-      <button onclick="saveNote(RAW.find(x=>x.id===${m.id}), document.getElementById('panel-contact-notes').value)"
-        style="margin-top:4px;padding:4px 14px;border-radius:6px;border:none;background:#6366f1;color:#fff;font-size:0.72rem;cursor:pointer">
-        Save note
-      </button>
-    </div>
+    ${done ? `<button onclick="toggleContacted(RAW.find(x=>x.id===${m.id}))" style="width:100%;padding:5px;border-radius:7px;border:1.5px solid #fca5a5;background:transparent;color:#dc2626;font-size:0.7rem;cursor:pointer;font-weight:600;margin-bottom:6px">✕ Remove log</button>` : ''}
   `;
-  wrap.querySelector('#panel-contact-btn').onclick = (e)=>{ e.stopPropagation(); toggleContacted(m); };
+  wrap.querySelector('#panel-contact-btn').onclick = (e)=>{ e.stopPropagation(); openEngLog(m); };
   body.insertBefore(wrap, body.firstChild);
 }
 
