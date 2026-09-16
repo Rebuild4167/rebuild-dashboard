@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
 /* ── Header ── */
-.header{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.header{position:relative;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .header-left h1{font-size:1.2rem;font-weight:800;letter-spacing:-0.5px}
 .header-left p{font-size:0.73rem;color:#94a3b8;margin-top:3px}
 .header-right{display:flex;gap:8px;flex-wrap:wrap}
@@ -214,6 +214,10 @@ select:focus{border-color:#6366f1}
     <p id="hdesc">Loading…</p>
   </div>
   <div class="header-right" id="hstats"></div>
+  <button onclick="document.getElementById('guideModal').classList.add('open')"
+    style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:white;border-radius:8px;padding:6px 13px;font-size:0.75rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">
+    Guide ?
+  </button>
 </div>
 
 <!-- Location tabs -->
@@ -2634,5 +2638,85 @@ function clearSavedUpdate() {
   </div>
 </div>
 
+
+<!-- Coach Guide Modal -->
+<div id="guideModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);overflow-y:auto" onclick="if(event.target===this)this.classList.remove('open')">
+  <div style="max-width:760px;margin:40px auto 60px;background:#f8fafc;border-radius:18px;overflow:hidden;position:relative;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
+    <button onclick="document.getElementById('guideModal').classList.remove('open')"
+      style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:30px;height:30px;font-size:1rem;cursor:pointer;z-index:10;color:white;display:flex;align-items:center;justify-content:center">✕</button>
+    
+<div class="guide-embed">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;padding:36px 24px 28px;text-align:center">
+    <h1 style="font-size:1.5rem;font-weight:800;margin:0 0 8px">Member Engagement Dashboard</h1>
+    <p style="color:#c7d2fe;font-size:0.88rem;margin:0">How to read the board and understand the quadrant system</p>
+  </div>
+  <div style="padding:24px;max-width:680px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">📐 The Four Quadrants</h2>
+    <p style="font-size:0.85rem;color:#64748b;margin-bottom:16px">Every member sits in one quadrant based on their attendance over the last 30 days. Quadrant placement updates automatically each week when the dashboard is refreshed.</p>
+
+    <div style="border-left:4px solid #dc2626;background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#dc2626;margin-bottom:4px">🔴 DO FIRST — Contact today</div>
+      <p style="font-size:0.84rem;color:#64748b;margin:0">Members who have gone missing after being active, flagged At Risk by Wodify, or shown two consecutive weeks of zero attendance. Fraser handles these personally — call or SMS same day.</p>
+    </div>
+    <div style="border-left:4px solid #ea580c;background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#ea580c;margin-bottom:4px">🟠 SCHEDULE — Re-engage this week</div>
+      <p style="font-size:0.84rem;color:#64748b;margin:0">Members averaging fewer than 8 sessions in the last 30 days, or showing a declining pattern over 2–3 consecutive weeks. Fraser schedules a direct conversation.</p>
+    </div>
+    <div style="border-left:4px solid #ca8a04;background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#ca8a04;margin-bottom:4px">🟡 MONITOR CLOSELY — Early warning</div>
+      <p style="font-size:0.84rem;color:#64748b;margin:0">Members averaging 8–11 sessions in 30 days. Not in crisis but not thriving. A warm floor conversation from their coach can stop a slide before it becomes a problem. These are assigned to coaches via the Coach Outreach Board.</p>
+    </div>
+    <div style="border-left:4px solid #16a34a;background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#16a34a;margin-bottom:4px">🟢 MAINTAIN — Keep the fire burning</div>
+      <p style="font-size:0.84rem;color:#64748b;margin:0">Members averaging 12+ sessions in 30 days. Consistent and engaged. Coaches celebrate milestones, check in on goals, and look for referral opportunities.</p>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">📊 How to Read the Data</h2>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">Weekly windows (Mon–Sun)</div>
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li><strong>Last week (v7)</strong> — sessions Mon–Sun of the most recently completed week</li>
+        <li><strong>Week before (v714)</strong> — the week prior to that</li>
+        <li><strong>30d</strong> — total sessions in the last 30 days (the primary threshold)</li>
+        <li><strong>WoW</strong> — week-on-week change (e.g. +2 or −3)</li>
+        <li><strong>Str</strong> — consecutive weekly attendance streak</li>
+      </ul>
+    </div>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">WoW elevation rules</div>
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li>Gone last week after 2+ visits the week before → <strong>Do First</strong></li>
+        <li>Two consecutive weekly drops while still attending → <strong>Schedule</strong></li>
+        <li>Maintain member with a sharp drop last week → <strong>Monitor</strong></li>
+      </ul>
+    </div>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">Filters and views</div>
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li><strong>Location tabs</strong> — filter the whole board to Wynnum or Capalaba</li>
+        <li><strong>Cards / List toggle</strong> — switch each quadrant between chip view and a sortable table</li>
+        <li><strong>↓ Export button</strong> — download any quadrant as an Excel file with outreach scripts</li>
+        <li><strong>Needs action filter</strong> — hide already-contacted members to focus on outstanding outreach</li>
+        <li><strong>Mark as contacted</strong> — tick a member after speaking with them; syncs across devices</li>
+      </ul>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">📅 Weekly Update Schedule</h2>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li><strong>Sunday evening</strong> — dashboard updated with the previous Mon–Sun week's data</li>
+        <li><strong>Monday morning</strong> — review Do First and Schedule; assign Monitor/Maintain to coaches</li>
+        <li><strong>Monday reset</strong> — contacted ticks clear automatically at the start of each new week</li>
+      </ul>
+    </div>
+  </div>
+</div>
+  </div>
+</div>
+<style>
+#guideModal { display:none }
+#guideModal.open { display:block }
+</style>
 </body>
 </html>
