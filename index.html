@@ -551,6 +551,10 @@ function outreachScript(m,q){
   const channel=canSMS?'SMS':'Call';
   const avg=m.ca?parseFloat(m.ca.toFixed(1)):0;
 
+  // Previous week contact context
+  const prev=prevContact(m);
+  const prevNote=prev&&prev.contacted&&prev.notes ? prev.notes.trim() : null;
+
   // Evidence string — written from Monday's perspective (v7 = last week, v714 = week before)
   function evidence(){
     if(sig==='gone'&&m.v714>=2) return `${m.v714} visit${m.v714>1?'s':''} the week before, 0 last week.`;
@@ -564,7 +568,16 @@ function outreachScript(m,q){
   }
 
   // Script message — evidence woven in, tense correct for Monday/Tuesday send
+  // If previously contacted, lead with a follow-up rather than a cold open
   function scriptMsg(){
+    if(prevNote){
+      // Has previous contact note — use a follow-up opener
+      if(q===1||q===2)
+        return `${channel}: "Hey ${fn}, we spoke last week — ${prevNote.length>80?prevNote.slice(0,77)+'…':prevNote}. Just checking in to see how things are going?"`;
+      if(q===3)
+        return `Floor: "Hey ${fn}, good to see you — how did things go after our chat last week?"`;
+      return `Floor: "Hey ${fn}, great to see you in again — how are things going since we last caught up?"`;
+    }
     if(q===1){
       if(sig==='gone'&&m.v714>=2)
         return `${channel}: "Hey ${fn}, we missed you last week — you'd been in ${m.v714}x the week before which was great. Everything ok?"`;
@@ -594,6 +607,7 @@ function outreachScript(m,q){
   if(q===1){
     const lines=[];
     lines.push('<strong>Evidence:</strong> '+evidence());
+    if(prevNote) lines.push(`<strong>Last week:</strong> ${prevNote}`);
     if(isVet) lines.push('<strong>Veteran</strong> ('+parseFloat((m.days/365).toFixed(1))+' yrs) — senior coach or owner should reach out personally.');
     lines.push(scriptMsg());
     lines.push('Offer: free PT session, goal reset, or bring-a-friend. Remove all friction from re-entry.');
@@ -603,6 +617,7 @@ function outreachScript(m,q){
   if(q===2){
     const lines=[];
     lines.push('<strong>Evidence:</strong> '+evidence());
+    if(prevNote) lines.push(`<strong>Last week:</strong> ${prevNote}`);
     if(s3) lines.push('<strong>Under 3/wk</strong> — hasn\'t hit the habit threshold. This is the conversation to have.');
     lines.push(scriptMsg());
     lines.push('Goal: help them find 3 sessions that fit their week — schedule, time-of-day, or accountability buddy.');
@@ -1311,8 +1326,27 @@ function pruneOldWeeks(){
 
 pruneOldWeeks();
 
-// Load on startup
-loadContacted().then(()=>{
+// ── Previous week contact log ─────────────────────────────────────────
+// Loaded from the sheet on startup — keyed by member name (lowercase)
+let PREV_CONTACTS = {};  // { memberKey -> {name, notes, ts, contacted} }
+
+async function loadPrevContacts(){
+  const data = await callScript('loadAllEngagement', {});
+  if(!data || !data.allContacts) return;
+  // allContacts is { weekKey -> { memberKey -> entry } }
+  // Find the most recent week that isn't the current week
+  const thisWeek = currentWeekKey();
+  const weeks = Object.keys(data.allContacts).filter(w=>w!==thisWeek).sort().reverse();
+  if(!weeks.length) return;
+  PREV_CONTACTS = data.allContacts[weeks[0]] || {};
+}
+
+function prevContact(m){
+  return PREV_CONTACTS[contactKey(m)] || null;
+}
+
+// Load on startup — both current and previous contacts
+Promise.all([loadContacted(), loadPrevContacts()]).then(()=>{
   render(); buildNmBox(); buildHoldsBox(); buildExpiringBox(); updateContactBar();
 });
 
@@ -1435,15 +1469,29 @@ function refreshPanelContactBtn(m){
 function injectContactUI(m){
   const body = document.getElementById('pbody');
   if(!body) return;
-  // Remove any existing contact UI
   const existing = document.getElementById('panel-contact-wrap');
   if(existing) existing.remove();
 
   const done = isContacted(m);
+  const prev = prevContact(m);
   const wrap = document.createElement('div');
   wrap.id = 'panel-contact-wrap';
   wrap.style.cssText = 'margin-bottom:12px';
+
+  // Previous contact history section
+  let prevHtml = '';
+  if(prev && prev.contacted){
+    const prevDate = prev.ts ? new Date(prev.ts).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : 'Last week';
+    const prevNotes = prev.notes ? `<div style="font-size:0.72rem;color:#334155;margin-top:4px;padding:6px 8px;background:#f8fafc;border-radius:6px;border-left:3px solid #6366f1;white-space:pre-wrap">${prev.notes}</div>` : '';
+    prevHtml = `
+      <div style="margin-bottom:8px;padding:8px 10px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe">
+        <div style="font-size:0.65rem;font-weight:700;color:#4338ca;margin-bottom:2px">&#128338; Previous contact · ${prevDate}</div>
+        ${prevNotes || '<div style="font-size:0.7rem;color:#6366f1;font-style:italic">Contacted — no notes recorded</div>'}
+      </div>`;
+  }
+
   wrap.innerHTML = `
+    ${prevHtml}
     <button id="panel-contact-btn" class="contact-btn${done?' done':''}" style="width:100%;margin-bottom:6px">
       ${done ? '&#10003; Contacted — click to unmark' : '&#9711; Mark as contacted'}
     </button>
