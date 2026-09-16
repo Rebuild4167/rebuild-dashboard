@@ -722,13 +722,14 @@ async function writeContactToSheet(memberId, memberName, coachName, contacted, n
 async function callScript(action, payload){
   if(!APPS_SCRIPT_URL) return null;
   try {
-    const r = await fetch(APPS_SCRIPT_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action, ...payload}),
-      mode:'cors',
+    const params = new URLSearchParams({action, ...payload});
+    const r = await fetch(APPS_SCRIPT_URL + '?' + params.toString(), {
+      method: 'GET',
+      redirect: 'follow',
     });
-    return r.ok ? await r.json() : null;
+    if(!r.ok) return null;
+    const text = await r.text();
+    return JSON.parse(text);
   } catch(e){ console.warn('Sheets sync error:', e); return null; }
 }
 // assignments declared above in Sheets backend section
