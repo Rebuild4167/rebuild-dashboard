@@ -1410,3 +1410,114 @@ renderWorkload();
 renderAll();
 initDb();
 </script>
+
+<!-- Coach Guide Modal -->
+<div id="guideModal" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);overflow-y:auto" onclick="if(event.target===this)this.classList.remove('open')">
+  <div style="max-width:760px;margin:40px auto 60px;background:#f8fafc;border-radius:18px;overflow:hidden;position:relative;box-shadow:0 24px 64px rgba(0,0,0,0.3)">
+    <button onclick="document.getElementById('guideModal').classList.remove('open')"
+      style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:30px;height:30px;font-size:1rem;cursor:pointer;z-index:10;color:white;display:flex;align-items:center;justify-content:center">&#10005;</button>
+    
+<div class="guide-embed">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;padding:36px 24px 28px;text-align:center">
+    <h1 style="font-size:1.5rem;font-weight:800;margin:0 0 8px">Coach Outreach Board</h1>
+    <p style="color:#c7d2fe;font-size:0.88rem;margin:0">How to use the board, what to say, and how to log your contacts</p>
+  </div>
+  <div style="padding:24px;max-width:680px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">🎯 Getting Started</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;color:white;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div><div style="font-size:0.88rem;font-weight:700;margin-bottom:2px">Select your name</div><p style="font-size:0.82rem;color:#64748b;margin:0">Top right corner — tap the dropdown and select your coach profile. Your assigned members will highlight.</p></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;color:white;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div><div style="font-size:0.88rem;font-weight:700;margin-bottom:2px">Filter to your members</div><p style="font-size:0.82rem;color:#64748b;margin:0">Use the <strong>Mine</strong> filter to see only members assigned to you. Green ✓ tiles have already been contacted this week.</p></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;color:white;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div><div style="font-size:0.88rem;font-weight:700;margin-bottom:2px">Open a member tile</div><p style="font-size:0.82rem;color:#64748b;margin:0">Tap any tile for their attendance data, a suggested conversation opener, and last week's contact notes (if any).</p></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;color:white;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+        <div><div style="font-size:0.88rem;font-weight:700;margin-bottom:2px">Have the conversation, then log it</div><p style="font-size:0.82rem;color:#64748b;margin:0">After speaking with the member, tap <strong>Log contact this week</strong> — choose method, outcome, and write a short note. This syncs to the shared sheet so everyone has context next week.</p></div>
+      </div>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">💬 What to Say</h2>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#ca8a04;margin-bottom:6px">🟡 Monitor members</div>
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li><em>"Hey [name], how's everything going? We want to make sure training is working for you."</em></li>
+        <li><em>"Hey [name], noticed you've been in more consistently — what's been helping?"</em></li>
+        <li><em>"Hey [name], noticed it's been a quieter couple of weeks. Everything ok?"</em></li>
+      </ul>
+    </div>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;color:#16a34a;margin-bottom:6px">🟢 Maintain members</div>
+      <ul style="font-size:0.83rem;color:#64748b;padding-left:18px;margin:0">
+        <li><strong>Streak milestone:</strong> Call it out in class — "Big shout out to [name] — X weeks straight. That's what consistency looks like."</li>
+        <li><strong>Training interest:</strong> "Have you been enjoying what we've been doing? Anything you want more of?"</li>
+        <li><strong>Goals:</strong> "You've been so consistent — any goals you want to work toward over the next few months?"</li>
+        <li><strong>Referral:</strong> "You're one of our best — do you know anyone who'd love this?"</li>
+      </ul>
+    </div>
+    <div style="background:#fef3c7;border-left:4px solid #d97706;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:0.82rem;color:#92400e">
+      <strong>Don't read the script word for word.</strong> Use the data to inform what you say — the best conversations feel natural.
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">📋 Logging a Contact</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">Method</div>
+        <ul style="font-size:0.82rem;color:#64748b;padding-left:16px;margin:0">
+          <li>Floor</li><li>SMS</li><li>Call</li>
+        </ul>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">Outcome</div>
+        <ul style="font-size:0.82rem;color:#64748b;padding-left:16px;margin:0">
+          <li>Positive</li><li>Needs follow-up</li><li>No response</li><li>Escalate</li>
+        </ul>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">Notes — write one or two sentences</div>
+      <ul style="font-size:0.82rem;color:#64748b;padding-left:18px;margin:0">
+        <li><em>"Mentioned she's been busy with work but wants to get back to 4x a week. Tuesday evenings work best."</em></li>
+        <li><em>"Really positive chat — excited about the strength cycle. No concerns."</em></li>
+        <li><em>"Hasn't been in due to a knee issue. Seeing physio this week. Check in next Monday."</em></li>
+      </ul>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">🔑 Your PIN</h2>
+    <div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <p style="font-size:0.83rem;color:#64748b;margin-bottom:10px">Required to reset or remove a contact log. Keep it private.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+        <thead><tr style="background:#eef2ff"><th style="text-align:left;padding:8px 12px;color:#6366f1">Coach</th><th style="text-align:left;padding:8px 12px;color:#6366f1">PIN</th></tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 12px">Ata Ceviker</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#6366f1;letter-spacing:1px">%AC94</td></tr>
+          <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 12px">Azelle Breytenbach</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#6366f1;letter-spacing:1px">&amp;AB00</td></tr>
+          <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 12px">Everson Boian</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#6366f1;letter-spacing:1px">*EB75</td></tr>
+          <tr><td style="padding:8px 12px">Fraser Harrison</td><td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#6366f1;letter-spacing:1px">^FH91</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="font-size:1rem;font-weight:800;color:#6366f1;border-bottom:2px solid #eef2ff;padding-bottom:8px;margin:0 0 16px">📅 Weekly Rhythm</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)"><strong style="font-size:0.83rem">Monday</strong><p style="font-size:0.82rem;color:#64748b;margin:4px 0 0">Dashboard refreshes. Fraser reviews urgent contacts and assigns Monitor/Maintain members to coaches. Check the board before your first class.</p></div>
+      <div style="background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)"><strong style="font-size:0.83rem">Tuesday – Saturday</strong><p style="font-size:0.82rem;color:#64748b;margin:4px 0 0">Work through your assigned members across the week. Floor conversations during class are the most natural — no need to seek people out separately.</p></div>
+      <div style="background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)"><strong style="font-size:0.83rem">Sunday</strong><p style="font-size:0.82rem;color:#64748b;margin:4px 0 0">Contact ticks reset automatically. Your notes carry forward as context for next week's conversations.</p></div>
+    </div>
+    <div style="background:#eef2ff;border-left:4px solid #6366f1;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:0.82rem;color:#3730a3">
+      <strong>Quality over quantity.</strong> One genuine conversation beats three quick check-ins. The goal is for members to feel known, not processed.
+    </div>
+  </div>
+</div>
+  </div>
+</div>
+<style>
+#guideModal { display:none }
+#guideModal.open { display:block }
+</style>
