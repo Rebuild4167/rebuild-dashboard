@@ -933,7 +933,16 @@ function removeWeekLog(id, wk){
   const doc=existingDoc(id);
   doc.weeks=Object.assign({}, doc.weeks);
   delete doc.weeks[wk];
+  // If no weeks left, clear the assignments contacted state too
+  if(!Object.keys(doc.weeks).length){
+    if(assignments[String(id)]){
+      Object.keys(assignments[String(id)]).forEach(name=>{
+        assignments[String(id)][name].contacted = false;
+      });
+    }
+  }
   writeAssignment(id, doc);
+  renderWorkload(); renderAll();
   showToast('Log entry removed');
 }
 
@@ -942,12 +951,8 @@ function resetMemberLog(id){
   const doc=existingDoc(id);
   doc.weeks={};
   doc.contacted=false;
-  // Clear local per-coach state so the green tick disappears immediately
-  if(assignments[String(id)]){
-    Object.keys(assignments[String(id)]).forEach(coachName=>{
-      assignments[String(id)][coachName].contacted = false;
-    });
-  }
+  // Clear assignments state for all coaches so tile updates immediately
+  assignments[String(id)] = {};
   writeAssignment(id, doc);
   // Clear from sheet
   const m = MEMBERS.find(x=>x.id===id);
