@@ -675,16 +675,15 @@ function outcomeLabel(q,v){ const o=(OUTCOME_OPTIONS[q]||[]).find(x=>x.value===v
 /* ================= State ================= */
 // Hardcoded coaches — update this list if the coaching team changes
 const COACH_LIST = [
-  'Ata Ceviker',
-  'Azelle Breytenbach',
-  'Everson Boian',
-  'Fraser Harrison',
+  {name:'Ata Ceviker',        pin:'%AC94'},
+  {name:'Azelle Breytenbach', pin:'&AB00'},
+  {name:'Everson Boian',      pin:'*EB75'},
+  {name:'Fraser Harrison',    pin:'^FH91'},
 ];
-let coaches = {};  // id -> {id,name,active}
-// Populate from hardcoded list
-COACH_LIST.forEach(name => {
-  const id = name.toLowerCase().replace(/[^a-z]/g,'_');
-  coaches[id] = {id, name, active: true};
+let coaches = {};  // id -> {id,name,pin,active}
+COACH_LIST.forEach(c => {
+  const id = c.name.toLowerCase().replace(/[^a-z]/g,'_');
+  coaches[id] = {id, name:c.name, pin:c.pin, active:true};
 });
 
 /* ── Google Sheets backend via Apps Script web app ──────────────────── */
@@ -915,12 +914,40 @@ function removeCurrentLog(){
   removeWeekLog(logModalMemberId, weekKeyNow());
   closeLogModal();
 }
+
+function verifyPin(){
+  // Returns true if the current coach's PIN matches what they entered
+  if(!currentCoachId) { showToast('Select your coach profile first'); return false; }
+  const coach = coaches[currentCoachId];
+  if(!coach || !coach.pin) return true; // no pin set — allow
+  const entered = prompt(`Enter your PIN to confirm:`);
+  if(entered === null) return false; // cancelled
+  if(entered !== coach.pin){ showToast('Incorrect PIN'); return false; }
+  return true;
+}
+
 function removeWeekLog(id, wk){
+  if(!verifyPin()) return;
   const doc=existingDoc(id);
   doc.weeks=Object.assign({}, doc.weeks);
   delete doc.weeks[wk];
   writeAssignment(id, doc);
   showToast('Log entry removed');
+}
+
+function resetMemberLog(id){
+  if(!verifyPin()) return;
+  const doc=existingDoc(id);
+  doc.weeks={};
+  writeAssignment(id, doc);
+  // Also clear from sheet
+  const m = MEMBERS.find(x=>x.id===id);
+  const coachName = coaches[currentCoachId]?.name || currentCoachId;
+  if(APPS_SCRIPT_URL && m){
+    writeContactToSheet(id, cn(m.n), coachName, false, '');
+  }
+  showToast('Contact log reset ✓');
+  if(openPanelId===id) refreshPanel();
 }
 function saveNotes(id, val){
   const doc=existingDoc(id);
@@ -1321,7 +1348,11 @@ function drawPanel(m){
             ${info.milestone?`<div class="log-outcome">Milestone invite: ${info.inviteSent?'sent ✓':'not yet'}</div>`:''}
           </div>
           <button class="log-remove" onclick="removeWeekLog(${m.id},'${wk}')" title="Remove this entry">✕</button>
-        </div>`).join('')}</div>`:''}
+        </div>`).join('')}
+        <button onclick="resetMemberLog(${m.id})" style="margin-top:8px;width:100%;padding:6px;border-radius:7px;border:1.5px solid var(--danger-line);background:transparent;color:var(--danger-ink);font-size:0.72rem;cursor:pointer;font-weight:600">
+          ↺ Reset all logs for this member
+        </button>
+      </div>`:''}
     </div>
     <div class="psection">
       <div class="stitle">Suggested outreach</div>
