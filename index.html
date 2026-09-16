@@ -403,20 +403,23 @@ select:focus{border-color:#6366f1}
     </div>
     <div style="margin-bottom:12px">
       <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Method</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="engLogMethod">
-        <button class="eng-log-btn" data-val="Floor" onclick="selectEngLog('method',this)">Floor</button>
-        <button class="eng-log-btn" data-val="SMS" onclick="selectEngLog('method',this)">SMS</button>
-        <button class="eng-log-btn" data-val="Call" onclick="selectEngLog('method',this)">Call</button>
-      </div>
+      <select id="engLogMethod" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.82rem;font-family:inherit;color:#334155;background:#f8fafc;cursor:pointer">
+        <option value="">Select method…</option>
+        <option value="Floor">Floor</option>
+        <option value="SMS">SMS</option>
+        <option value="Call">Call</option>
+        <option value="Email">Email</option>
+      </select>
     </div>
     <div style="margin-bottom:12px">
       <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Outcome</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="engLogOutcome">
-        <button class="eng-log-btn" data-val="Positive" onclick="selectEngLog('outcome',this)">Positive</button>
-        <button class="eng-log-btn" data-val="Needs follow-up" onclick="selectEngLog('outcome',this)">Needs follow-up</button>
-        <button class="eng-log-btn" data-val="No response" onclick="selectEngLog('outcome',this)">No response</button>
-        <button class="eng-log-btn" data-val="Escalate" onclick="selectEngLog('outcome',this)">Escalate</button>
-      </div>
+      <select id="engLogOutcome" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.82rem;font-family:inherit;color:#334155;background:#f8fafc;cursor:pointer">
+        <option value="">Select outcome…</option>
+        <option value="Positive">Positive</option>
+        <option value="Needs follow-up">Needs follow-up</option>
+        <option value="No response">No response</option>
+        <option value="Escalate">Escalate</option>
+      </select>
     </div>
     <div style="margin-bottom:16px">
       <div style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Notes</div>
@@ -1399,23 +1402,15 @@ function contactedNote(m){ return (CONTACTED[contactKey(m)]||{}).notes||''; }
 
 // ── Engagement contact log modal ───────────────────────────────────────
 let engLogMember = null;
-let engLogState  = { method: null, outcome: null };
 
 function openEngLog(m){
   engLogMember = m;
-  engLogState  = { method: null, outcome: null };
   const key    = contactKey(m);
   const entry  = CONTACTED[key] || {};
   document.getElementById('engLogTitle').textContent = 'Log contact — ' + fname(m.n);
   document.getElementById('engLogNote').value = entry.notes || '';
-  // Pre-select existing values
-  ['method','outcome'].forEach(type => {
-    document.querySelectorAll(`#engLog${type.charAt(0).toUpperCase()+type.slice(1)} .eng-log-btn`).forEach(btn => {
-      const match = entry[type] && btn.dataset.val === entry[type];
-      btn.classList.toggle('selected', match);
-      if(match) engLogState[type] = entry[type];
-    });
-  });
+  document.getElementById('engLogMethod').value  = entry.method  || '';
+  document.getElementById('engLogOutcome').value = entry.outcome || '';
   document.getElementById('engLogModal').style.display = 'flex';
 }
 
@@ -1424,27 +1419,21 @@ function closeEngLog(){
   engLogMember = null;
 }
 
-function selectEngLog(type, btn){
-  const group = btn.closest('[id^="engLog"]');
-  group.querySelectorAll('.eng-log-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  engLogState[type] = btn.dataset.val;
-}
 
 async function saveEngLog(){
   if(!engLogMember) return;
-  const m = engLogMember;
-  const key = contactKey(m);
-  const notes = document.getElementById('engLogNote').value.trim();
-  if(!engLogState.method){ showToast('Please select a method'); return; }
-  if(!engLogState.outcome){ showToast('Please select an outcome'); return; }
+  const m       = engLogMember;
+  const key     = contactKey(m);
+  const notes   = document.getElementById('engLogNote').value.trim();
+  const method  = document.getElementById('engLogMethod').value;
+  const outcome = document.getElementById('engLogOutcome').value;
+  if(!method){  showToast('Please select a method');  return; }
+  if(!outcome){ showToast('Please select an outcome'); return; }
 
   CONTACTED[key] = {
     ts: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
     name: cn(m.n), week: currentWeekKey(),
-    method: engLogState.method,
-    outcome: engLogState.outcome,
-    notes,
+    method, outcome, notes,
   };
   saveContactedLocal();
   closeEngLog();
@@ -1457,7 +1446,7 @@ async function saveEngLog(){
   await callScript('writeEngagement', {
     memberKey: key, memberName: cn(m.n), memberId: m.id,
     contacted: true,
-    notes: [engLogState.method, engLogState.outcome, notes].filter(Boolean).join(' — '),
+    notes: [method, outcome, notes].filter(Boolean).join(' — '),
     week: currentWeekKey(),
   });
 }
@@ -2361,7 +2350,7 @@ function buildHoldsBox(){
 // "Membership Hold" placeholder rows excluded (administrative artifact, not
 // a genuine membership). ft=true flags Rebuild Challenge fixed-term programs,
 // which are designed to expire and are not a churn signal.
-const EXPIRING=[{"n":"Gillian Smith","id":6267169,"loc":"Wynnum","mem":"Free Group Partner/Paid in full","plan":"Non - Paying Partner Membership","exp":"2027-06-03","risk":"Not at Risk","ft":false}];
+const EXPIRING=[{"n":"Shane Lacey","id":3104931,"loc":"Wynnum","mem":"Unlimited Group Classes","plan":"Weekly","exp":"2026-09-21","risk":"At Risk","ar":"Auto Renew Pause Scheduled"},{"n":"Brendan Little","id":6181919,"loc":"Wynnum","mem":"Unlimited Group Classes","plan":"Weekly","exp":"2026-09-21","risk":"At Risk","ar":"Auto Renew Pause Scheduled"},{"n":"Srujan Valluri","id":5619404,"loc":"Wynnum","mem":"Unlimited Group Classes","plan":"Weekly","exp":"2026-09-23","risk":"Not at Risk","ar":"No Auto Renew"},{"n":"Gillian Smith","id":6267169,"loc":"Wynnum","mem":"Free Group Partner/Paid in full","plan":"Non - Paying Partner Membership","exp":"2027-06-03","risk":"Not at Risk","ar":"No Auto Renew"}];
 function expDaysLeft(e){
   return Math.round((new Date(e.exp)-new Date(TODAY))/86400000);
 }
