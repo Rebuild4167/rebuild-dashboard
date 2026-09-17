@@ -712,6 +712,28 @@ async function loadAllAssignments(){
     if(entries.length) console.log(`  Sample:`, JSON.stringify(entries[0]));
   });
   assignments = a;
+  // Mirror contacted state into localDocs so isContactedThisWeek works
+  // regardless of which members are currently visible
+  const wk = weekKeyNow();
+  Object.entries(a).forEach(([memberId, perCoach])=>{
+    const anyContacted = Object.values(perCoach).some(c=>c.contacted);
+    if(anyContacted){
+      const doc = getLocalDoc(memberId) || {};
+      if(!doc.weeks) doc.weeks = {};
+      if(!doc.weeks[wk]){
+        // Synthesise a minimal week log entry from the sheet data
+        const coachEntry = Object.entries(perCoach).find(([,c])=>c.contacted);
+        doc.weeks[wk] = {
+          method: (coachEntry && coachEntry[1].notes ? coachEntry[1].notes.split(' — ')[0] : '') || 'Floor',
+          outcome: '',
+          note: coachEntry && coachEntry[1].notes || '',
+          by: coachEntry && coachEntry[0] || '',
+          fromSheet: true,
+        };
+        setLocalDoc(memberId, doc);
+      }
+    }
+  });
   renderWorkload(); renderAll();
   if(openPanelId!=null) refreshPanel();
 }
