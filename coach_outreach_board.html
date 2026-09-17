@@ -706,11 +706,6 @@ async function loadAllAssignments(){
   const data = await callScript('load', {});
   if(!data) { renderWorkload(); renderAll(); return; }
   const a = data.assignments || {};
-  ['Ata Ceviker','Azelle Breytenbach','Everson Boian','Fraser Harrison'].forEach(name => {
-    const entries = Object.entries(a).filter(([,v])=>v[name]&&v[name].contacted===true);
-    console.log(`${name}: ${Object.entries(a).filter(([,v])=>v[name]).length} rows loaded, ${entries.length} contacted=true`);
-    if(entries.length) console.log(`  Sample:`, JSON.stringify(entries[0]));
-  });
   assignments = a;
   // Mirror contacted state into localDocs so isContactedThisWeek works
   // regardless of which members are currently visible
@@ -721,7 +716,6 @@ async function loadAllAssignments(){
       const doc = getLocalDoc(memberId) || {};
       if(!doc.weeks) doc.weeks = {};
       if(!doc.weeks[wk]){
-        // Synthesise a minimal week log entry from the sheet data
         const coachEntry = Object.entries(perCoach).find(([,c])=>c.contacted);
         doc.weeks[wk] = {
           method: (coachEntry && coachEntry[1].notes ? coachEntry[1].notes.split(' — ')[0] : '') || 'Floor',
@@ -806,19 +800,28 @@ function isContactedThisWeek(m){
   const a = getAssignment(m.id);
   const doc = getLocalDoc(m.id);
   const hasWeekLog = !!(doc && doc.weeks && doc.weeks[weekKeyNow()]);
-  const result = !!(a && a.contacted) || hasWeekLog;
-  // Diagnostic: log the first few members that should be contacted
-  if(a && a.contacted && !result){
-    console.warn('isContactedThisWeek FALSE despite contacted=true for', m.n, a);
-  }
-  if(a && a.contacted){
-    console.log('contacted check:', m.n, m.id, 'a.contacted=', a.contacted, '=> result=', result);
-  }
-  return result;
+  return !!(a && a.contacted) || hasWeekLog;
 }
 function thisWeekLog(m){
+  // Check localDocs first (coach logged via this device)
   const doc = getLocalDoc(m.id);
-  return (doc && doc.weeks && doc.weeks[weekKeyNow()]) || null;
+  const local = doc && doc.weeks && doc.weeks[weekKeyNow()];
+  if(local) return local;
+  // Fall back to Sheets state (logged by any coach on any device)
+  const a = getAssignment(m.id);
+  if(a && a.contacted){
+    const coachEntry = a.contactedBy && a.contactedBy[0];
+    const perCoach = a.perCoach && coachEntry && a.perCoach[coachEntry];
+    return {
+      method: perCoach && perCoach.notes ? perCoach.notes.split(' — ')[0] : 'Floor',
+      outcome: perCoach && perCoach.notes ? (perCoach.notes.split(' — ')[1] || '') : '',
+      note: perCoach && perCoach.notes ? (perCoach.notes.split(' — ').slice(2).join(' — ') || '') : '',
+      by: coachEntry || '',
+      ts: perCoach && perCoach.ts || '',
+      fromSheet: true,
+    };
+  }
+  return null;
 }
 function milestoneComplete(m){ const log=thisWeekLog(m); return !!(log&&log.milestone&&log.inviteSent===true); }
 function coachName(id){ return (id && coaches[id]) ? coaches[id].name : (id?'Former coach':'—'); }
