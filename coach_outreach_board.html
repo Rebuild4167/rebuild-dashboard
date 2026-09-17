@@ -705,7 +705,13 @@ async function loadAllAssignments(){
   if(!APPS_SCRIPT_URL){ renderWorkload(); renderAll(); return; }
   const data = await callScript('load', {});
   if(!data) { renderWorkload(); renderAll(); return; }
-  assignments = data.assignments || {};
+  const a = data.assignments || {};
+  ['Ata Ceviker','Azelle Breytenbach','Everson Boian','Fraser Harrison'].forEach(name => {
+    const entries = Object.entries(a).filter(([,v])=>v[name]&&v[name].contacted===true);
+    console.log(`${name}: ${Object.entries(a).filter(([,v])=>v[name]).length} rows loaded, ${entries.length} contacted=true`);
+    if(entries.length) console.log(`  Sample:`, JSON.stringify(entries[0]));
+  });
+  assignments = a;
   renderWorkload(); renderAll();
   if(openPanelId!=null) refreshPanel();
 }
