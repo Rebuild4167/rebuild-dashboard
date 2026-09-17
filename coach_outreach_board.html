@@ -781,11 +781,18 @@ function weekKeyNow(){
   return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
 }
 function isContactedThisWeek(m){
-  // Check Sheets state (cross-device) OR local week log
   const a = getAssignment(m.id);
   const doc = getLocalDoc(m.id);
   const hasWeekLog = !!(doc && doc.weeks && doc.weeks[weekKeyNow()]);
-  return !!(a && a.contacted) || hasWeekLog;
+  const result = !!(a && a.contacted) || hasWeekLog;
+  // Diagnostic: log the first few members that should be contacted
+  if(a && a.contacted && !result){
+    console.warn('isContactedThisWeek FALSE despite contacted=true for', m.n, a);
+  }
+  if(a && a.contacted){
+    console.log('contacted check:', m.n, m.id, 'a.contacted=', a.contacted, '=> result=', result);
+  }
+  return result;
 }
 function thisWeekLog(m){
   const doc = getLocalDoc(m.id);
