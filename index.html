@@ -1360,7 +1360,16 @@ async function loadContacted(){
   // Try Sheets first
   const data = await callScript('loadEngagement', {});
   if(data && data.contacted){
-    CONTACTED = data.contacted;
+    // Sheet now keyed by memberId (numeric string)
+    // Remap to contactKey (name) so existing isContacted() works
+    const remapped = {};
+    Object.entries(data.contacted).forEach(([idStr, entry])=>{
+      // Find member by id
+      const m = RAW.find(x=>String(x.id)===idStr);
+      if(m) remapped[contactKey(m)] = entry;
+      else remapped[idStr] = entry; // fallback keep id key
+    });
+    CONTACTED = {...remapped, ...CONTACTED}; // merge, local takes precedence
     return;
   }
   // Fallback to localStorage
@@ -1520,7 +1529,7 @@ async function saveEngLog(){
   }
   showToast('Contact logged ✓');
   await callScript('writeEngagement', {
-    memberKey: key, memberName: cn(m.n), memberId: m.id,
+    memberKey: String(m.id), memberName: cn(m.n), memberId: m.id,
     contacted: true,
     notes: [method, outcome, notes].filter(Boolean).join(' — '),
     week: currentWeekKey(),
@@ -1539,7 +1548,7 @@ async function toggleContacted(m, e){
     if(document.getElementById('panel').classList.contains('open')) injectContactUI(m);
     showToast('Unmarked: '+cn(m.n));
     await callScript('writeEngagement', {
-      memberKey: key, memberName: cn(m.n), memberId: m.id,
+      memberKey: String(m.id), memberName: cn(m.n), memberId: m.id,
       contacted: false, notes: '', week: currentWeekKey(),
     });
   } else {
@@ -1554,7 +1563,7 @@ async function saveNote(m, notes){
   CONTACTED[key].notes = notes;
   saveContactedLocal();
   await callScript('writeEngagement', {
-    memberKey: key, memberName: cn(m.n), memberId: m.id,
+    memberKey: String(m.id), memberName: cn(m.n), memberId: m.id,
     contacted: true, notes, week: currentWeekKey(),
   });
   showToast('Note saved ✓');
