@@ -83,6 +83,12 @@ select:focus{border-color:#6366f1}
 .chip.wow-elevated{border-color:#f97316;background:#fff7ed}
 .chip.wow-gone{border-color:#f59e0b;background:#fffbeb}
 .chip.sub3{border-color:#a855f7;background:#faf5ff}
+.chip.flagged{border-color:#f59e0b!important;background:#fef3c7!important;animation:pulse-flag 2s infinite}
+.chip.escalate-flag{border-color:#ef4444!important;background:#fee2e2!important;animation:pulse-flag 1.5s infinite}
+.chip.grace{opacity:0.45;filter:saturate(0.25)}
+@keyframes pulse-flag{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 0 3px rgba(245,158,11,.25)}}
+.flag-badge{display:inline-flex;align-items:center;gap:2px;font-size:0.56rem;font-weight:700;padding:1px 5px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;margin-left:2px}
+.flag-badge.esc{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 .chip-name{font-weight:700;color:#1e293b}
 .chip-v{color:#64748b;font-size:0.61rem}
 .wpip{display:inline-flex;gap:1px;align-items:flex-end;height:10px;margin:0 1px}
@@ -991,11 +997,23 @@ function render(){
     const locBadge='<span style="font-size:0.56rem;color:#0369a1;background:#e0f2fe;border-radius:3px;padding:1px 3px;">'+m.loc.charAt(0)+'</span>';
 
     const freeBadge=m.free?'<span class="cbadge b-free">free</span>':'';
+
+    // Rotation state (Q3 Monitor and Q4 Maintain only)
+    const prev=prevContact(m);
+    const rState=(q===3||q===4)?rotationState(m,q,prev):'due';
+    const milestoneNow=isMilestoneOverride(m);
+    const isGrace=rState==='grace'&&!milestoneNow;
+    const isFlagged=rState==='flagged';
+    const isEscalate=isFlagged&&prev&&parseContactOutcome(prev.notes)==='Escalate';
+    const flagBadge=isFlagged
+      ?(isEscalate?'<span class="flag-badge esc">⚠ Escalate</span>':'<span class="flag-badge">↩ Follow up</span>')
+      :'';
+
     const chip=document.createElement('div');
-    chip.className='chip'+(el?' wow-elevated':'')+(sig==='gone'?' wow-gone':'')+(s3&&!el?' sub3':'')+(m.free?' free-mem':'');
+    chip.className='chip'+(el?' wow-elevated':'')+(sig==='gone'?' wow-gone':'')+(s3&&!el?' sub3':'')+(m.free?' free-mem':'')+(isGrace?' grace':'')+(isFlagged?(isEscalate?' escalate-flag':' flagged'):'');
     chip.title=name+' | '+m.loc+(m.free?' | Free':'')+' | '+m.prog+' | Risk: '+riskScore(m)+' | v7:'+m.v7+' v30:'+m.v30;
     chip.onclick=()=>openPanel(m);
-    chip.innerHTML=badge+sub3Badge+elevBadge+freeBadge+memCapBadge+locBadge+sparkBars(m)+'<span class="chip-name">'+fn+'</span><span class="chip-v">'+m.v7+'/'+m.v30+'</span>';
+    chip.innerHTML=badge+sub3Badge+elevBadge+freeBadge+memCapBadge+locBadge+flagBadge+sparkBars(m)+'<span class="chip-name">'+fn+'</span><span class="chip-v">'+m.v7+'/'+m.v30+'</span>';
     areas[q].push(chip);
   });
 
@@ -1388,6 +1406,64 @@ function prevContact(m){
   return PREV_CONTACTS[contactKey(m)] || null;
 }
 
+// ── Outreach rotation logic ──────────────────────────────────────────
+// Parses the stored notes string "method — outcome — free text"
+function parseContactOutcome(notes){
+  if(!notes) return null;
+  const parts = notes.split(' — ');
+  if(parts.length >= 2) return parts[1].trim();
+  return null;
+}
+
+function daysSince(isoTs){
+  if(!isoTs) return 9999;
+  const d = new Date(isoTs);
+  if(isNaN(d)) return 9999;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+// Returns the rotation state for a member:
+// 'flagged'  — Escalate or Needs follow-up carry-forward → always surface
+// 'due'      — grace window expired or never contacted → surface normally
+// 'grace'    — contacted recently with Positive/No-response → mute tile
+// 'recent'   — contacted this week → green tick (handled separately)
+function rotationState(m, q, prevContactEntry){
+  // If contacted this week — handled by isContactedThisWeek, not here
+  const prev = prevContactEntry;
+  if(!prev || !prev.contacted) return 'due';
+
+  const outcome = parseContactOutcome(prev.notes);
+  const days    = daysSince(prev.ts);
+  const isMaintain = q === 4;
+  const isMonitor  = q === 3;
+
+  // Escalate — always flagged, never resets
+  if(outcome === 'Escalate') return 'flagged';
+
+  // Needs follow-up — always flagged, stays due
+  if(outcome === 'Needs follow-up') return 'flagged';
+
+  // No response — 7-day grace for both quadrants
+  if(outcome === 'No response'){
+    return days < 7 ? 'grace' : 'due';
+  }
+
+  // Positive — full grace window
+  if(outcome === 'Positive'){
+    const window = isMaintain ? 28 : isMonitor ? 14 : 7;
+    return days < window ? 'grace' : 'due';
+  }
+
+  // Unknown outcome — treat as due
+  return 'due';
+}
+
+// Milestone override: always surface streak milestones regardless of rotation
+function isMilestoneOverride(m){
+  return isMilestone(m);
+}
+
+
 // Load on startup — both current and previous contacts
 Promise.all([loadContacted(), loadPrevContacts()]).then(()=>{
   render(); buildNmBox(); buildHoldsBox(); buildExpiringBox(); updateContactBar();
@@ -1557,10 +1633,32 @@ function injectContactUI(m){
   wrap.id = 'panel-contact-wrap';
   wrap.style.cssText = 'margin-bottom:12px';
 
-  // Previous contact history
+  // Previous contact history + rotation state
+  const q = getQ(m);
+  const rState = (q===3||q===4) ? rotationState(m, q, prev) : 'due';
+  const milestoneNow = isMilestoneOverride(m);
+  const isGrace = rState==='grace' && !milestoneNow;
+  const isFlagged = rState==='flagged';
+  const isEscalate = isFlagged && prev && parseContactOutcome(prev.notes)==='Escalate';
+
   let prevHtml = '';
-  if(prev && prev.contacted){
-    const prevDate  = prev.ts ? new Date(prev.ts).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : 'Last week';
+  if(isEscalate){
+    prevHtml += `<div style="margin-bottom:8px;padding:8px 10px;background:#fee2e2;border-radius:8px;border:1px solid #fca5a5">
+      <div style="font-size:0.72rem;font-weight:700;color:#991b1b">⚠ Escalated last week — action required</div>
+      ${prev.notes?`<div style="font-size:0.7rem;color:#7f1d1d;margin-top:4px;white-space:pre-wrap">${prev.notes}</div>`:''}
+    </div>`;
+  } else if(isFlagged){
+    prevHtml += `<div style="margin-bottom:8px;padding:8px 10px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d">
+      <div style="font-size:0.72rem;font-weight:700;color:#92400e">↩ Follow-up needed from last week</div>
+      ${prev&&prev.notes?`<div style="font-size:0.7rem;color:#78350f;margin-top:4px;white-space:pre-wrap">${prev.notes}</div>`:''}
+    </div>`;
+  } else if(isGrace){
+    prevHtml += `<div style="margin-bottom:8px;padding:8px 10px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac">
+      <div style="font-size:0.65rem;font-weight:700;color:#166534;margin-bottom:2px">✓ Recently contacted — in grace period</div>
+      ${prev&&prev.notes?`<div style="font-size:0.7rem;color:#14532d;margin-top:4px;white-space:pre-wrap">${prev.notes}</div>`:''}
+    </div>`;
+  } else if(prev && prev.contacted){
+    const prevDate = prev.ts ? new Date(prev.ts).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : 'Last week';
     const prevNotes = prev.notes ? `<div style="font-size:0.72rem;color:#334155;margin-top:4px;padding:6px 8px;background:#f8fafc;border-radius:6px;border-left:3px solid #6366f1;white-space:pre-wrap">${prev.notes}</div>` : '';
     prevHtml = `<div style="margin-bottom:8px;padding:8px 10px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe">
       <div style="font-size:0.65rem;font-weight:700;color:#4338ca;margin-bottom:2px">⏱ Previous contact · ${prevDate}</div>
