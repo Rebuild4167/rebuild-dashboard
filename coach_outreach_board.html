@@ -1,3 +1,5 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coach Outreach Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -337,6 +339,60 @@ textarea.notes{width:100%;min-height:64px;border:1.5px solid var(--border);borde
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .footnote{font-size:.68rem;color:var(--faint);text-align:center;margin-top:16px}
+
+/* ============ Mobile responsive ============ */
+@media(max-width:640px){
+  body{padding-inline:0;padding-block:0 40px}
+  .tile-list{max-height:none;min-height:0}
+  .panel{
+    width:100%!important;max-width:100%!important;
+    top:auto!important;bottom:0;right:0;height:88vh;
+    border-radius:18px 18px 0 0;
+    transform:translateY(100%)!important;
+  }
+  .panel.open{transform:translateY(0)!important}
+  .hdr{padding:16px 14px 12px;border-radius:0}
+  .hdr-top{gap:10px}
+  .hdr-title h1{font-size:1.1rem}
+  .hdr-title p{font-size:.7rem}
+  .hdr-stats{gap:6px}
+  .hstat{padding:5px 10px;min-width:60px}
+  .hstat b{font-size:1rem}
+  .hstat span{font-size:.58rem}
+  .toolbar{padding:8px 10px;gap:6px;border-radius:0;border-left:none;border-right:none;flex-wrap:wrap}
+  .field label{font-size:.6rem}
+  .field select,.field input[type=text]{font-size:.75rem;padding:5px 7px}
+  .loc-tabs{padding:2px}
+  .loc-tab{padding:5px 9px;font-size:.72rem}
+  .identity{padding:5px 8px}
+  .identity label{font-size:.6rem}
+  .identity select{font-size:.75rem}
+  .btn{padding:5px 10px;font-size:.72rem}
+  .workload{padding:8px 10px;gap:6px;flex-wrap:wrap}
+  .wchip{padding:4px 10px;min-width:60px}
+  .wchip b{font-size:.9rem}
+  .sections{grid-template-columns:1fr!important;gap:10px;padding:10px}
+  .section{border-radius:12px}
+  .section-head{padding:10px 14px}
+  .section-head h2{font-size:.85rem}
+  .tiles{padding:8px 10px;gap:8px}
+  .tile{padding:10px 12px;border-radius:10px}
+  .nm{font-size:.85rem}
+  .tile-assign{grid-template-columns:1fr 1fr;gap:6px}
+  .assign-slot label{font-size:.6rem}
+  .assign-slot select{font-size:.72rem;padding:4px 6px}
+  .tile-script{padding:8px 10px;font-size:.72rem}
+  .copy-btn{padding:3px 8px;font-size:.68rem}
+  .pill{font-size:.7rem;padding:4px 8px}
+  .panel-head{padding:14px 16px 10px}
+  .panel-head h2{font-size:.95rem}
+  .pbody{padding:12px 14px}
+  .log-modal-inner{width:95%!important;max-width:95%!important;padding:16px}
+}
+@media(max-width:400px){
+  .tile-assign{grid-template-columns:1fr}
+  .hdr-stats{display:none}
+}
 </style>
 
 <div class="wrap">
