@@ -221,6 +221,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .milestone-chip{background:#3a2e08;color:#fbd979}}
 .tile-list{overflow-y:auto;max-height:calc(100vh - 300px);min-height:340px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .tile{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px}
+.tile-grace{opacity:0.45;filter:saturate(0.25)}
+.tile-flagged{border-color:#fcd34d!important;background:#fef9c3!important;animation:pulse-tile 2s infinite}
+.tile-escalate{border-color:#fca5a5!important;background:#fee2e2!important;animation:pulse-tile 1.5s infinite}
+@keyframes pulse-tile{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 3px rgba(245,158,11,.2)}}
 .tile-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .tile-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .streak-num{font-size:.72rem;font-weight:700;color:var(--muted);white-space:nowrap}
@@ -858,6 +862,64 @@ function isContactedThisWeek(m){
   const hasWeekLog = !!(doc && doc.weeks && doc.weeks[weekKeyNow()]);
   return !!(a && a.contacted) || hasWeekLog;
 }
+
+// ── Outreach rotation logic ──────────────────────────────────────────
+// Parses the stored notes string "method — outcome — free text"
+function parseContactOutcome(notes){
+  if(!notes) return null;
+  const parts = notes.split(' — ');
+  if(parts.length >= 2) return parts[1].trim();
+  return null;
+}
+
+function daysSince(isoTs){
+  if(!isoTs) return 9999;
+  const d = new Date(isoTs);
+  if(isNaN(d)) return 9999;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+// Returns the rotation state for a member:
+// 'flagged'  — Escalate or Needs follow-up carry-forward → always surface
+// 'due'      — grace window expired or never contacted → surface normally
+// 'grace'    — contacted recently with Positive/No-response → mute tile
+// 'recent'   — contacted this week → green tick (handled separately)
+function rotationState(m, q, prevContactEntry){
+  // If contacted this week — handled by isContactedThisWeek, not here
+  const prev = prevContactEntry;
+  if(!prev || !prev.contacted) return 'due';
+
+  const outcome = parseContactOutcome(prev.notes);
+  const days    = daysSince(prev.ts);
+  const isMaintain = q === 4;
+  const isMonitor  = q === 3;
+
+  // Escalate — always flagged, never resets
+  if(outcome === 'Escalate') return 'flagged';
+
+  // Needs follow-up — always flagged, stays due
+  if(outcome === 'Needs follow-up') return 'flagged';
+
+  // No response — 7-day grace for both quadrants
+  if(outcome === 'No response'){
+    return days < 7 ? 'grace' : 'due';
+  }
+
+  // Positive — full grace window
+  if(outcome === 'Positive'){
+    const window = isMaintain ? 28 : isMonitor ? 14 : 7;
+    return days < window ? 'grace' : 'due';
+  }
+
+  // Unknown outcome — treat as due
+  return 'due';
+}
+
+// Milestone override: always surface streak milestones regardless of rotation
+function isMilestoneOverride(m){
+  return isMilestone(m);
+}
+
 function thisWeekLog(m){
   // Check localDocs first (coach logged via this device)
   const doc = getLocalDoc(m.id);
@@ -1257,13 +1319,36 @@ function tileHTML(m){
   const noAutoMatch=!autoId&&!explicit;
   const contacted=thisWeekLog(m);
   const milestone=isMilestone(m);
-  return `<div class="tile" data-id="${m.id}">
+
+  // Rotation state
+  const prevEntry = (() => {
+    const perCoach = assignments[String(m.id)];
+    if(!perCoach) return null;
+    const anyContacted = Object.values(perCoach).some(c=>c.contacted);
+    if(!anyContacted) return null;
+    const coachEntry = Object.entries(perCoach).find(([,c])=>c.contacted);
+    return coachEntry ? {contacted:true, notes:coachEntry[1].notes||'', ts:coachEntry[1].ts||''} : null;
+  })();
+  const rState = rotationState(m, m.q, prevEntry);
+  const milestoneNow = milestone;
+  const isGrace = rState==='grace' && !milestoneNow && !contacted;
+  const isFlagged = rState==='flagged' && !contacted;
+  const isEscalate = isFlagged && prevEntry && parseContactOutcome(prevEntry.notes)==='Escalate';
+  const flagChip = isFlagged
+    ? (isEscalate
+        ? `<span class="milestone-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠ Escalate</span>`
+        : `<span class="milestone-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">↩ Follow up</span>`)
+    : '';
+  const tileClass = `tile${isGrace?' tile-grace':''}${isFlagged?(isEscalate?' tile-escalate':' tile-flagged'):''}`;
+
+  return `<div class="${tileClass}" data-id="${m.id}">
     <div class="tile-top">
       <div class="name-cell" onclick="openPanel(${m.id})">
         <span class="nm">${escapeHtml(cn(m.n))}</span>
         <span class="loc-chip loc-${m.loc}">${m.loc==='Wynnum'?'W':'C'}</span>
         ${m.tag?`<span class="tag-chip">${escapeHtml(m.tag)}</span>`:''}
         ${milestone?`<span class="milestone-chip">🎉 ${m.str}wk milestone</span>`:''}
+        ${flagChip}
         ${sigChip(m)}
       </div>
       <div class="tile-meta">${sparkHTML(m)}<span class="streak-num" title="Week streak">${m.str>0?'🔥'+m.str:'—'}</span></div>
